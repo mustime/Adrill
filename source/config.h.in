@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2020, Irvin Pang <halo.irvin@gmail.com>
+ * All rights reserved.
+ * 
+ * see LICENSE file for details
+ */
+
+#ifndef __ADRILL_CONFIG_H__
+#define __ADRILL_CONFIG_H__
+
+#define ADRILL_VERSION_MAJOR @ADRILL_VERSION_MAJOR@
+#define ADRILL_VERSION_MINOR @ADRILL_VERSION_MINOR@
+#define ADRILL_VERSION_PATCH @ADRILL_VERSION_PATCH@
+
+#endif // __ADRILL_CONFIG_H__
