@@ -23,7 +23,7 @@ add_subdirectory(mem mem/build)
 
 if (CMAKE_ANDROID_ARCH_ABI MATCHES "^armeabi*")
     set(ADRILL_ARCH arm)
-elseif (CMAKE_ANDROID_ARCH_ABI MATCHES "^armv8*")
+elseif (CMAKE_ANDROID_ARCH_ABI MATCHES "^arm64*")
     set(ADRILL_ARCH arm64)
 elseif (CMAKE_ANDROID_ARCH_ABI MATCHES "^x86$")
     set(ADRILL_ARCH x86)
