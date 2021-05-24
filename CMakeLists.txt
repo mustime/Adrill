@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(adrill)
 
 set(ADRILL_VERSION_MAJOR 1)
-set(ADRILL_VERSION_MINOR 0)
+set(ADRILL_VERSION_MINOR 1)
 set(ADRILL_VERSION_PATCH 0)
 
 configure_file (
