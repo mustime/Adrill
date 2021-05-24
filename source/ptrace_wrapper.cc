@@ -202,7 +202,9 @@ bool PtraceWrapper::_connectToZygote() {
                 if (::connect(sock, (struct sockaddr*)&remote, len) == 0) {
                     ::close(sock);
                     ret = true;
-                    break;
+                    // don't break here.
+                    // each zygote process needs to be waked up.
+                    // break;
                 }
             }
             ::close(sock);

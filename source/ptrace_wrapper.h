@@ -15,10 +15,12 @@
 
 #define PT_SIZE sizeof(intptr_t)
 
-#if $is($arch_arm64)
-    typedef struct user_pt_regs PtraceRegs;
+#if   $is($arch_arm64)
+    typedef struct user_pt_regs     PtraceRegs;
+#elif $is($arch_x64)
+    typedef struct user_regs_struct PtraceRegs;
 #else
-    typedef struct pt_regs PtraceRegs;
+    typedef struct pt_regs          PtraceRegs;
 #endif
 
 class PtraceWrapper {
