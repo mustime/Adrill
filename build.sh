@@ -1,5 +1,5 @@
 
-targetArch=x86_64
+targetArch=arm64-v8a
 buildDir=build
 
 cmake -S . -B $buildDir -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=21 -DCMAKE_ANDROID_ARCH_ABI=${targetArch} -DCMAKE_ANDROID_NDK=$ANDROID_NDK_ROOT

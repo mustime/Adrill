@@ -61,7 +61,6 @@ uintptr_t resolveLocalFunction(const std::vector<std::string>& symbols) {
     uintptr_t localAddr = 0;
     for (const auto& symbol : symbols) {
         localAddr = (uintptr_t)dlsym(RTLD_DEFAULT, symbol.c_str());
-        LOGGER_LOGI("fuck fuck '%s' = %zx\n", symbol.c_str(), localAddr);
         if (localAddr > 0) break;
     }
     return localAddr;
