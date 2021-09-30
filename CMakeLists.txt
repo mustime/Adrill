@@ -34,6 +34,8 @@ endif ()
 add_executable(adrill
     source/main.cc
     source/selinux.cc
+    source/sdk_code.cc
+    source/file_utils.cc
     source/ptrace_wrapper.cc
     source/call_procedure.cc
     source/backend/${ADRILL_ARCH}/call_procedure-${ADRILL_ARCH}.cc

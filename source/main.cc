@@ -17,24 +17,26 @@
 
 #include "macros.h"
 #include "selinux.h"
+#include "sdk_code.h"
+#include "file_utils.h"
 #include "ptrace_wrapper.h"
 #include "call_procedure.h"
 
 int moduleMatcher(mem::region_info* region, void* data) {
     mem::region_info* result = static_cast<mem::region_info*>(data);
-    // only interest in mmap module by system
-    // which is offset == 0 & readable & private
-    if (region->offset == 0 && (region->prot & PROT_READ) && (region->flags & MAP_PRIVATE)) {
+    // // only interest in mmap module by system
+    // // which is offset == 0 & readable & private
+    // if (region->offset == 0 && (region->prot & PROT_READ) && (region->flags & MAP_PRIVATE)) {
         // region->path_name could be nullptr
         if (region->path_name && ::strcmp(region->path_name, result->path_name) == 0) {
-            result->start  = region->start;
-            result->end    = region->end;
-            result->offset = region->offset;
-            result->prot   = region->prot;
-            result->flags  = region->flags;
+            result->start = std::min(result->start, region->start);
+            result->end = std::max(result->end, region->end);
+            // result->offset = region->offset;
+            // result->prot   = region->prot;
+            // result->flags  = region->flags;
         }
-    }
-    return result->start > 0;
+    // }
+    return 0;
 }
 
 uintptr_t resolveRemoteFunction(const char* name, uintptr_t localAddr, mem::region_info* localRegionInfo, mem::region_info* remoteRegionInfo) {
@@ -55,6 +57,35 @@ uintptr_t resolveRemoteFunction(const char* name, uintptr_t localAddr, mem::regi
     return remoteAddr;
 }
 
+uintptr_t resolveLocalFunction(const std::vector<std::string>& symbols) {
+    uintptr_t localAddr = 0;
+    for (const auto& symbol : symbols) {
+        localAddr = (uintptr_t)dlsym(RTLD_DEFAULT, symbol.c_str());
+        LOGGER_LOGI("fuck fuck '%s' = %zx\n", symbol.c_str(), localAddr);
+        if (localAddr > 0) break;
+    }
+    return localAddr;
+}
+
+std::string getBionicLib(const std::string& libname) {
+    FileSearcher searcher;
+    // Android version < 10.x
+    searcher.addSearchPath("/system/lib" $arch_64("64") "/");
+    // Android version >= 10.x makes runtime libraries
+    // independently OTA updatable through APEX bundles
+    if (SDKCode::get() >= SDKCode::Q) {
+        /* and makes it search first */
+        std::string runtimeRoot("/apex/com.android.runtime");
+        searcher.addSearchPath(runtimeRoot.append("/lib" $arch_64("64") "/bionic/"), true);
+    }
+
+    std::string location = searcher.resolveFullPath(libname);
+    if (location.empty()) {
+        LOGGER_LOGE("file %s not found!\n", libname.c_str());
+    }
+    return location;
+}
+
 bool doInject(pid_t pid, const std::string& libPath) {
     errno = 0;
     if (::access(libPath.c_str(), R_OK) != 0) {
@@ -63,21 +94,25 @@ bool doInject(pid_t pid, const std::string& libPath) {
     }
     
     // necessary local & remote modules
-    std::string libcPath($arch_32("/system/lib/libc.so") $arch_64("/system/lib64/libc.so"));
-    std::string linkerPath($arch_32("/system/bin/linker") $arch_64("/system/bin/linker64"));
-    mem::region_info localLibcRegionInfo    { 0, 0, 0, 0, 0, libcPath.c_str() };
-    mem::region_info localLinkerRegionInfo  { 0, 0, 0, 0, 0, linkerPath.c_str() };
-    mem::region_info remoteLibcRegionInfo   { 0, 0, 0, 0, 0, libcPath.c_str() };
-    mem::region_info remoteLinkerRegionInfo { 0, 0, 0, 0, 0, linkerPath.c_str() };
+    std::string libcPath = getBionicLib("libc.so");
+    std::string libdlPath = getBionicLib("libdl.so");
+    if (libcPath.empty() || libdlPath.empty()) {
+        return false;
+    }
+
+    mem::region_info localLibcRegionInfo    { $arch_32(UINT_MAX) $arch_64(UINT64_MAX), 0, 0, 0, 0, libcPath.c_str() };
+    mem::region_info localLibdlRegionInfo   { $arch_32(UINT_MAX) $arch_64(UINT64_MAX), 0, 0, 0, 0, libdlPath.c_str() };
+    mem::region_info remoteLibcRegionInfo   { $arch_32(UINT_MAX) $arch_64(UINT64_MAX), 0, 0, 0, 0, libcPath.c_str() };
+    mem::region_info remoteLibdlRegionInfo  { $arch_32(UINT_MAX) $arch_64(UINT64_MAX), 0, 0, 0, 0, libdlPath.c_str() };
 
     // resolve modules
     mem::iter_proc_maps(0,   moduleMatcher, &localLibcRegionInfo);
-    mem::iter_proc_maps(0,   moduleMatcher, &localLinkerRegionInfo);
+    mem::iter_proc_maps(0,   moduleMatcher, &localLibdlRegionInfo);
     mem::iter_proc_maps(pid, moduleMatcher, &remoteLibcRegionInfo);
-    mem::iter_proc_maps(pid, moduleMatcher, &remoteLinkerRegionInfo);
+    mem::iter_proc_maps(pid, moduleMatcher, &remoteLibdlRegionInfo);
 
     // check target process accessable
-    if (!remoteLibcRegionInfo.start || !remoteLinkerRegionInfo.start) {
+    if (!remoteLibcRegionInfo.start || !remoteLibdlRegionInfo.start) {
         LOGGER_LOGE("[!] process %d not found!\n", pid);
         return false;
     }
@@ -85,8 +120,11 @@ bool doInject(pid_t pid, const std::string& libPath) {
     // that's the minimum functions to make it work
     uintptr_t remoteFuncMmap    = resolveRemoteFunction("mmap",     (uintptr_t)mmap,    &localLibcRegionInfo,   &remoteLibcRegionInfo);
     uintptr_t remoteFuncMunmap  = resolveRemoteFunction("munmap",   (uintptr_t)munmap,  &localLibcRegionInfo,   &remoteLibcRegionInfo);
-    uintptr_t remoteFuncDlopen  = resolveRemoteFunction("dlopen",   (uintptr_t)dlopen,  &localLinkerRegionInfo, &remoteLinkerRegionInfo);
-    uintptr_t remoteFuncDlerror = resolveRemoteFunction("dlerror",  (uintptr_t)dlerror, &localLinkerRegionInfo, &remoteLinkerRegionInfo);
+    uintptr_t remoteFuncDlopen  = resolveRemoteFunction("dlopen",   (uintptr_t)dlopen,  &localLibdlRegionInfo, &remoteLibdlRegionInfo);
+    uintptr_t remoteFuncDlerror = resolveRemoteFunction("dlerror",  (uintptr_t)dlerror, &localLibdlRegionInfo, &remoteLibdlRegionInfo);
+    if (!remoteFuncMmap || !remoteFuncMunmap || !remoteFuncDlopen || !remoteFuncDlerror) {
+        return false;
+    }
 
     bool ok = true;
     PtraceRegs oriRegs;
@@ -121,7 +159,7 @@ bool doInject(pid_t pid, const std::string& libPath) {
 
         // call remote dlopen, load library to tracee process
         LOGGER_LOGI("[-] calling remote dlopen '%s' ...\n", libPath.c_str());
-        ok &= caller.remoteCall(remoteFuncDlopen, mappedAddr, RTLD_NOW | RTLD_GLOBAL, CallProcedure::ARG_END);
+        ok &= caller.remoteCall(remoteFuncDlopen, mappedAddr, RTLD_NOW | RTLD_GLOBAL, /*possible caller since Android7.0*/nullptr, CallProcedure::ARG_END);
         BREAK_IF_WITH_LOGE(!ok, "[!] failed to call dlopen\n");
         
         // get the call return value, i.e., remote module handle
@@ -130,7 +168,7 @@ bool doInject(pid_t pid, const std::string& libPath) {
             if (caller.remoteCall(remoteFuncDlerror, nullptr, CallProcedure::ARG_END)) {
                 // dlerror return remote error string header
                 // we should retrieve it by ptrace.readText
-                void* errMsg = ::malloc(size);
+                char* errMsg = (char*)::malloc(size);
                 if (ptrace.readText(errMsg, (const void*)caller.returnValue(), size)) {
                     // strip it if the error msg length exceed <size>
                     // shoule be long enough to explain the error though
