@@ -8,7 +8,7 @@ You may notice there are already tons of similar inject tools, but few of them t
 
 Furthermore, Adrill make it more easier when it comes to zygote[64] injection(see for workaround at [ptrace_wrapper.cc](https://github.com/mustime/Adrill/blob/main/source/ptrace_wrapper.cc#L184)). And there will be detail info printed when any error occured.
 
-I've test on multiple arch platforms from Android 4.x to 7.0. Fire an issue if there's something I could help with.
+I've test on multiple arch platforms from Android 4.x to 11.0. Fire an issue if there's something I could help with.
 
 > Notice: running on root privilege is a must.
 
