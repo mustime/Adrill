@@ -8,7 +8,7 @@ Adrill是一款基于C++1X编写的Android ELF库文件注入工具，全面支�
 
 另外针对zygote[64]进程的注入，Adrill做了一些额外的工作大大提高了成功率（参见[ptrace_wrapper.cc](https://github.com/mustime/Adrill/blob/main/source/ptrace_wrapper.cc#L184)处的注释说明）；还有针对每一步注入环节的错误信息导出更加完善，方便排查。
 
-目前此工具已经在Android 4.x至7.0测试过（更高版本的Android系统比较少有root权限），碰到任何问题欢迎提交issue讨论。
+目前此工具已经在Android 4.x至11.0测试过，碰到任何问题欢迎提交issue讨论。
 
 > 注意：运行此工具需要root权限。
 
