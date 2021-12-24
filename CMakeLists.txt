@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(adrill)
 
 set(ADRILL_VERSION_MAJOR 1)
-set(ADRILL_VERSION_MINOR 2)
+set(ADRILL_VERSION_MINOR 3)
 set(ADRILL_VERSION_PATCH 0)
 
 configure_file (
@@ -19,8 +19,6 @@ include_directories(
     source
 )
 
-add_subdirectory(mem mem/build)
-
 if (CMAKE_ANDROID_ARCH_ABI MATCHES "^armeabi*")
     set(ADRILL_ARCH arm)
 elseif (CMAKE_ANDROID_ARCH_ABI MATCHES "^arm64*")
@@ -31,10 +29,14 @@ elseif (CMAKE_ANDROID_ARCH_ABI MATCHES "^x86_64$")
     set(ADRILL_ARCH x64)
 endif ()
 
+add_subdirectory(mem mem/build)
+add_subdirectory(ELFIO ELFIO/build)
+
 add_executable(adrill
     source/main.cc
     source/selinux.cc
     source/sdk_code.cc
+    source/elf_dlfcn.cc
     source/file_utils.cc
     source/ptrace_wrapper.cc
     source/call_procedure.cc
@@ -42,6 +44,7 @@ add_executable(adrill
 )
 
 target_link_libraries(adrill mem)
+target_link_libraries(adrill elfio)
 
 set_target_properties(adrill PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 set_target_properties(adrill PROPERTIES LINK_FLAGS "-llog -ldl")
